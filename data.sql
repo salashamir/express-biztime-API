@@ -1,7 +1,9 @@
 \c biztime
 
-DROP TABLE IF EXISTS invoices;
-DROP TABLE IF EXISTS companies;
+DROP TABLE IF EXISTS invoices CASCADE;
+DROP TABLE IF EXISTS companies CASCADE;
+DROP TABLE IF EXISTS industries CASCADE;
+DROP TABLE IF EXISTS comp_indus CASCADE;
 
 CREATE TABLE companies (
     code text PRIMARY KEY,
@@ -19,9 +21,26 @@ CREATE TABLE invoices (
     CONSTRAINT invoices_amt_check CHECK ((amt > (0)::double precision))
 );
 
-INSERT INTO companies
+CREATE TABLE industries (
+  code text PRIMARY KEY,
+  industry text NOT NULL UNIQUE
+);
+
+CREATE TABLE comp_indus (
+  comp_code text NOT NULL REFERENCES companies (code) ON DELETE CASCADE,
+  indus_code text NOT NULL REFERENCES industries (code) ON DELETE CASCADE,
+  PRIMARY KEY(comp_code, indus_code)
+);
+
+INSERT INTO industries
+  VALUES ('tech', 'technology'), ('acct', 'accounting'), ('env', 'environmental'), ('ftns', 'fitness');
+
+INSERT INTO companies (code, name, description)
   VALUES ('apple', 'Apple Computer', 'Maker of OSX.'),
-         ('ibm', 'IBM', 'Big blue.');
+         ('ibm', 'IBM', 'Big blue.'), ('adidas', 'Adidas', 'Maker of athletic sportswear'), ('deloitte', 'Deloitte Consulting', 'Business and accounting consultancy'), ('patagonia', 'Patagonia Apparel', 'Environmentally conscious clothing and sportswear company');
+
+INSERT INTO comp_indus
+  VALUES ('apple', 'tech'),('ibm', 'tech'), ('adidas', 'ftns'), ('deloitte', 'acct'), ('patagonia', 'ftns'), ('patagonia', 'env');
 
 INSERT INTO invoices (comp_Code, amt, paid, paid_date)
   VALUES ('apple', 100, false, null),

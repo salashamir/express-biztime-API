@@ -76,25 +76,38 @@ router.post("/", async (req, res, next) => {
 router.put("/:id", async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { amt } = req.body;
-    const searchRes = await db.query("SELECT * FROM invoices WHERE id = $1", [
-      id,
-    ]);
-
-    if (searchRes.rows.length === 0) {
-      throw new ExpressError(`Invoice with id of: ${id} was not found.`, 404);
-    }
+    const { amt, paid } = req.body;
+    let results;
+    let paid_date;
 
     if (amt === undefined) {
       throw new ExpressError("Put request must contain amt", 400);
     }
 
-    const updateRes = await db.query(
-      "UPDATE invoices SET amt=$1 WHERE id=$2 RETURNING id, comp_code, amt, paid, add_date, paid_date",
-      [amt, id]
-    );
+    if (paid) {
+      paid_date = new Date();
+      results = await db.query(
+        "UPDATE invoices SET amt=$1, paid=$2, paid_date=$3 WHERE id=$4 RETURNING id, comp_code, amt, paid, add_date, paid_date",
+        [amt, paid, paid_date, id]
+      );
+    } else if (paid === false) {
+      paid_date = null;
+      results = await db.query(
+        "UPDATE invoices SET amt=$1, paid=$2, paid_date=$3 WHERE id=$4 RETURNING id, comp_code, amt, paid, add_date, paid_date",
+        [amt, paid, paid_date, id]
+      );
+    } else {
+      results = await db.query(
+        "UPDATE invoices SET amt=$1 WHERE id=$2 RETURNING id, comp_code, amt, paid, add_date, paid_date",
+        [amt, id]
+      );
+    }
 
-    return res.status(200).json({ invoice: updateRes.rows[0] });
+    if (results.rows.length === 0) {
+      throw new ExpressError(`Invoice with id of: ${id} was not found.`, 404);
+    }
+
+    return res.status(200).json({ invoice: results.rows[0] });
   } catch (e) {
     return next(e);
   }

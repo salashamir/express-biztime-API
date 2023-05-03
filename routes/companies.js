@@ -1,6 +1,7 @@
 const express = require("express");
 const ExpressError = require("../expressError");
 const router = express.Router();
+const slugify = require("slugify");
 const db = require("../db");
 
 // GET /companies
@@ -29,6 +30,11 @@ router.get("/:code", async (req, res, next) => {
       [code]
     );
 
+    const companyIndustries = await db.query(
+      "SELECT i.industry AS industry FROM companies c JOIN comp_indus ci ON c.code = ci.comp_code JOIN industries i ON ci.indus_code = i.code WHERE c.code = $1",
+      [code]
+    );
+
     if (companyRes.rows.length === 0) {
       throw new ExpressError(
         `Coudn't find company with provided code: ${code}`,
@@ -38,6 +44,7 @@ router.get("/:code", async (req, res, next) => {
 
     const company = companyRes.rows[0];
     company.invoices = companyInvoices.rows;
+    company.industries = companyIndustries.rows.map((i) => i.industry);
 
     return res.status(200).json({ company });
   } catch (e) {
@@ -50,12 +57,13 @@ router.get("/:code", async (req, res, next) => {
 // Returns obj of new company: {company: {code, name, description}}
 router.post("/", async (req, res, next) => {
   try {
-    const { code, name, description } = req.body;
+    const { name, description } = req.body;
+    const slugified_code = slugify(name, { lower: true, strict: true });
     const results = await db.query(
       "INSERT INTO companies (code, name, description) VALUES ($1, $2, $3) RETURNING code, name, description",
-      [code, name, description]
+      [slugified_code, name, description]
     );
-    return res.status(201).json({ company: results.rows });
+    return res.status(201).json({ company: results.rows[0] });
   } catch (e) {
     return next(e);
   }
@@ -77,12 +85,15 @@ router.put("/:code", async (req, res, next) => {
 
     if (companyRes.rows.length === 0) {
       throw new ExpressError(
-        `Can't update company with the code provided: ${code}`
+        `Coudn't find company with provided code: ${code}`,
+        404
       );
     }
 
-    return res.json({ company: companyRes.rows });
-  } catch (e) {}
+    return res.json({ company: companyRes.rows[0] });
+  } catch (e) {
+    return next(e);
+  }
 });
 
 // DELETE /companies/[code]
